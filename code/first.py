@@ -3,11 +3,13 @@ from random import randint
 
 # class for global parameters
 class params:
-    q = 25
+    q = 10531
     Q = None
     curve = None
-    m = 18
-    number_of_parts = 5
+    m = 100007
+    number_of_parts = 10
+    k = 5               # 5 secrets
+    threshold = 7
 
 # dummy hash functions, very weak
 def hash_h(num, params):
@@ -19,8 +21,8 @@ def hash_q(point, params, r):
 
 # setting up global params
 global_params = params()
-field = SubGroup(p=17, g=(15, 13), n=global_params.m, h=1)
-global_params.curve = Curve(a=0, b=7, field=field, name='p1707')
+field = SubGroup(p=global_params.q, g=(1, 3), n=global_params.m, h=1)
+global_params.curve = Curve(a=0, b=8, field=field, name='p1707')
 global_params.Q = global_params.curve.g
 
 # shareholder key generation
@@ -47,7 +49,7 @@ ac = r
 Ac = ac * global_params.Q
 
 # random integer for the sharing process
-r = randint(0, global_params.m - 1)
+r = randint(1, global_params.m - 1)
 
 
 # computing the combiner's secret
@@ -77,8 +79,44 @@ for i in range(global_params.number_of_parts):
     I_p.append(hash_q(b_p[i], global_params, r))
     X_p.append(hash_h(I_p[i].x ^ I_p[i].y, global_params))
 
-for i in range(global_params.number_of_parts):
-    print(f'x = {X[i]} and x_p = {X_p[i]}')
-
 # pseudo share verification
+
+# Share Generation
+# # Secret Publication after masking
+secrets = []
+pseudo_secrets = []
+Z = []
+for i in range(global_params.k):
+    rand = randint(1, global_params.q - 1)
+    S = rand * global_params.Q
+    secrets.append(S)
+    s = randint(1, global_params.m - 1)
+    pseudo_secrets.append(s)
+    W = s * global_params.Q
+    Zi = W + S + comb_sec
+    Z.append(Zi)
+
+# # polynomial creation
+
+coeffs = []
+def f(x):
+    val = 0
+    i = 0
+    for a in coeffs:
+        val = (val + (a * (x**i)))% global_params.m
+        i += 1
+    return val 
+
+if global_params.k <= global_params.threshold:
+    for s in pseudo_secrets:
+        coeffs.append(s)
+    for i in range(global_params.threshold - global_params.k):
+        coeffs.append(randint(1, global_params.m-1))
+    
+    # Computing public values
+    Y = []
+    for i in range(global_params.number_of_parts):
+        y = f(X[i])
+        Y.append(y * global_params.Q)
+# missing the else case
 
