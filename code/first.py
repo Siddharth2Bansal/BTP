@@ -135,3 +135,9 @@ else:
         y = f(X[i])
         Y.append(y * global_params.Q)
 
+# combiner verification phase 
+        
+# transfer of pseudo shares to combiner
+    
+
+# secret reconstruction
