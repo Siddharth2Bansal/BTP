@@ -3,10 +3,10 @@ from random import randint
 
 # class for global parameters
 class params:
-    q = 10531
+    q = 109
     Q = None
     curve = None
-    m = 100007
+    m = 109
     number_of_parts = 10
     k = 5               # 5 secrets
     threshold = 7
@@ -118,5 +118,20 @@ if global_params.k <= global_params.threshold:
     for i in range(global_params.number_of_parts):
         y = f(X[i])
         Y.append(y * global_params.Q)
-# missing the else case
+else:
+    for s in pseudo_secrets:
+        coeffs.append(s)
+    R = []
+    Lambda = []
+    for i in range(global_params.k - global_params.threshold):
+        rand = randint(1, global_params.m - 1)
+        while rand in X:
+            rand = randint(1, global_params.m - 1)
+        R.append(rand)
+        lamb = f(rand)
+        Lambda.append(lamb)
+    Y = []
+    for i in range(global_params.number_of_parts):
+        y = f(X[i])
+        Y.append(y * global_params.Q)
 
