@@ -21,11 +21,12 @@ def hash_q(point, params, r):
 
 # setting up global params
 global_params = params()
-field = SubGroup(p=global_params.q, g=(1, 3), n=global_params.m, h=1)
-global_params.curve = Curve(a=0, b=8, field=field, name='p1707')
+field = SubGroup(p=global_params.q, g=(6, 11), n=global_params.m, h=1)
+global_params.curve = Curve(a=1, b=8, field=field, name='p1707')
 global_params.Q = global_params.curve.g
 
 # shareholder key generation
+# variable created -> a and A
 a = []
 A = []
 for i in range(global_params.number_of_parts):
@@ -36,6 +37,7 @@ for i in range(global_params.number_of_parts):
     A.append(r * global_params.Q)
 
 # key generation for dealer and combiner
+# variable created -> a0 ac A0 Ac
 r = randint(0, global_params.m - 1)
 while r in a or r == 0:
     r = randint(0, global_params.m - 1)
@@ -49,6 +51,7 @@ ac = r
 Ac = ac * global_params.Q
 
 # random integer for the sharing process
+# variable created -> r comb_sec
 r = randint(1, global_params.m - 1)
 
 
@@ -56,7 +59,7 @@ r = randint(1, global_params.m - 1)
 comb_sec = a0 * Ac
 comb_sec = hash_q(comb_sec, global_params, r)
     # verifying the combiner's secret
-comb_sec_c = ac * Ac
+comb_sec_c = ac * A0
 comb_sec_c = hash_q(comb_sec_c, global_params, r)
 
 # assert comb_sec_c == comb_sec
@@ -138,6 +141,23 @@ else:
 # combiner verification phase 
         
 # transfer of pseudo shares to combiner
-    
+
+print("Transfering Pseudo Shares to combiner now")    
+D = []
+K = []
+for i in range(global_params.number_of_parts):
+    D.append(a[i] * Ac)
+    K.append(I[i] - D[i])
+D_c = []
+I_c = []
+X_c = []
+for i in range(global_params.number_of_parts):
+    D_c.append(ac * A[i])
+    I_c.append(K[i] + D_c[i])
+    X_c.append(hash_h(I_c[i].x ^ I_c[i].y, global_params))
+
+print("Sharing pseudo shares done, hopefully")
+
+# verification of pseudo shares by combiner
 
 # secret reconstruction
