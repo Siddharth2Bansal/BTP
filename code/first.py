@@ -1,5 +1,6 @@
 from tinyec.ec import SubGroup, Curve
 from random import randint
+from itertools import zip_longest
 
 # class for global parameters
 class params:
@@ -161,3 +162,55 @@ print("Sharing pseudo shares done, hopefully")
 # verification of pseudo shares by combiner
 
 # secret reconstruction
+
+class Data:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+def function_from_values(solutions:list) -> list:
+    a = [1]
+    for x in solutions:
+        b = [0]
+        b.extend([-1*x*l for l in a])
+        a = [sum(y) for y in zip_longest(a, b, fillvalue=0)]
+    return a
+
+
+def add_points(y_values):
+    ans = 0
+    for y_value in y_values:
+        if ans == 0:
+            ans = y_value
+        else:
+            ans = y_value + ans
+    return ans
+
+def get_inverse(x, p):
+    ans = 1
+    for i in range(p-2):
+        ans = (ans*x)%p
+    return ans
+
+def lagrange_interpolation(points, global_params):
+    func = []
+    for point in points:
+        temp = points.copy()
+        temp.remove(point)
+        p_i = [p.x for p in temp]
+        p_i = function_from_values(p_i)
+        denominator = 1
+        for p in temp:
+            denominator = denominator * (point.x - p.x)
+        p_i = [get_inverse(x, global_params.m) for x in p_i]
+        p_i = [x*point.y for x in p_i]
+        func = [add_points(y) for y in zip_longest(func, p_i, fillvalue=0)]
+    return func
+
+
+points = []
+for i in range(global_params.k):
+    points.append(Data(X[i], Y[i]))
+reconstructed_function = lagrange_interpolation(points, global_params)
+print("hopefully done and correct")
