@@ -10,3 +10,4 @@ combiner verification phase
 ~~transfer of pseudo shares to combiner~~
 ~~need to set up debugger~~
 pseudo share verification by combiner
+lagrange interpolation somehow not giving correct answers, need to test with dry runs
