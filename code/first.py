@@ -203,7 +203,8 @@ def lagrange_interpolation(points, global_params):
         denominator = 1
         for p in temp:
             denominator = denominator * (point.x - p.x)
-        p_i = [get_inverse(x, global_params.m) for x in p_i]
+        multiplier = get_inverse(denominator, global_params.m)
+        p_i = [(x*multiplier) % global_params.m for x in p_i]
         p_i = [x*point.y for x in p_i]
         func = [add_points(y) for y in zip_longest(func, p_i, fillvalue=0)]
     return func
@@ -211,6 +212,7 @@ def lagrange_interpolation(points, global_params):
 
 points = []
 for i in range(global_params.k):
+    assert(f(X[i])*global_params.Q == Y[i])
     points.append(Data(X[i], Y[i]))
 reconstructed_function = lagrange_interpolation(points, global_params)
 print("hopefully done and correct")
