@@ -4,13 +4,13 @@ from itertools import zip_longest
 
 # class for global parameters
 class params:
-    q = 109
+    q = 113
     Q = None
     curve = None
-    m = 109
+    m = 59
     number_of_parts = 10
-    k = 5               # 5 secrets
-    threshold = 7
+    k = 4               # 5 secrets
+    threshold = 5
 
 # dummy hash functions, very weak
 def hash_h(num, params):
@@ -22,7 +22,7 @@ def hash_q(point, params, r):
 
 # setting up global params
 global_params = params()
-field = SubGroup(p=global_params.q, g=(6, 11), n=global_params.m, h=1)
+field = SubGroup(p=global_params.q, g=(6, 2), n=global_params.m, h=1)
 global_params.curve = Curve(a=1, b=8, field=field, name='p1707')
 global_params.Q = global_params.curve.g
 
@@ -101,7 +101,7 @@ for i in range(global_params.k):
     Z.append(Zi)
 
 # # polynomial creation
-
+# coeffs contains a0, a1, a2 ... an
 coeffs = []
 def f(x):
     val = 0
@@ -116,7 +116,6 @@ if global_params.k <= global_params.threshold:
         coeffs.append(s)
     for i in range(global_params.threshold - global_params.k):
         coeffs.append(randint(1, global_params.m-1))
-    
     # Computing public values
     Y = []
     for i in range(global_params.number_of_parts):
@@ -133,7 +132,7 @@ else:
             rand = randint(1, global_params.m - 1)
         R.append(rand)
         lamb = f(rand)
-        Lambda.append(lamb)
+        Lambda.append(lamb * global_params.Q)
     Y = []
     for i in range(global_params.number_of_parts):
         y = f(X[i])
@@ -211,8 +210,19 @@ def lagrange_interpolation(points, global_params):
 
 
 points = []
-for i in range(global_params.k):
+if global_params.k > global_params.threshold:
+    for i in range(global_params.k - global_params.threshold):
+        assert(f(R[i])*global_params.Q == Lambda[i])
+        points.append(Data(R[i], Lambda[i]))
+for i in range(global_params.threshold):
     assert(f(X[i])*global_params.Q == Y[i])
     points.append(Data(X[i], Y[i]))
+
+
 reconstructed_function = lagrange_interpolation(points, global_params)
+reconstructed_function.reverse()
+reconstructed_secrets = []
+for i in range(global_params.k):
+    reconstructed_secrets.append(Z[i] - reconstructed_function[i] - comb_sec)
+
 print("hopefully done and correct")

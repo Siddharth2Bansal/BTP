@@ -3,6 +3,14 @@ from random import randint
 from itertools import zip_longest
 
 
+coeffs = [45, 34, 18, 24, 39, 11, 33, 56, 54, 45]
+def f(x):
+    val = 0
+    i = 0
+    for a in coeffs:
+        val = (val + (a * (x**i)))% global_params.m
+        i += 1
+    return val 
 
 
 
@@ -72,8 +80,12 @@ def lagrange_interpolation(points, global_params):
     return func, func_without_y
 
 # function -> Q * (x^2 + 4x - 6)
-points = [Data(1, -1*global_params.Q, -1), Data(2, 6*global_params.Q, 6), Data(0, 53*global_params.Q, 53)]
 
+# points = [Data(1, -1*global_params.Q, -1), Data(2, 6*global_params.Q, 6), Data(0, 53*global_params.Q, 53)]
+
+X = [18, 6, 13, 52, 46, 29, 40, 12, 43, 6]
+points = [Data(x, f(x)*global_params.Q, f(x)) for x in X]
+print(points)
 
 reconstructed_function = lagrange_interpolation(points, global_params)
 p1 = 59 * global_params.Q
