@@ -1,0 +1,9 @@
+bulletin storage structure
+
+
+all_ids : list of ids
+
+
+stored_values -> global_params{}
+                 key -> {id : value}
+
