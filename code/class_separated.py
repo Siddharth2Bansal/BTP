@@ -5,16 +5,17 @@ from itertools import zip_longest
 class Bulletin:
     def __init__(self, n, id):
         self.stored_values = {"global_params": {"number_of_parts": n}}
+        self.stored_values["public"] = {}
         self.all_ids = ["bulletin", "dealer", "combiner"]
         for i in range(n):
             self.all_ids.append(i)
         self.id = id
 
-    def get(self, type, key):
-        if type == "global_params":
+    def get(self, type, id):
+        if id == None:
             return self.stored_values[type]
         else:
-            return self.stored_values[type][key]
+            return self.stored_values[type][id]
 
     def verify_key(self, id, key):
         flag = True
@@ -27,7 +28,7 @@ class Bulletin:
         if type == "global_params":
             self.stored_values[type] = value
         elif type == "public":
-            if self.verify_key(id, "public"):
+            if self.verify_key(id, value):
                 self.stored_values[type][id] = value
             else:
                 return False
@@ -37,8 +38,8 @@ class Bulletin:
 
 
 # get from board to be updated
-def get_from_board(type, key = None):
-    return bulletin_board.get(type, key)
+def get_from_board(type, id = None):
+    return bulletin_board.get(type, id)
 
 # put to board to be updated
 def put_to_board(id, key, value):
@@ -104,3 +105,15 @@ for i in range(participant_count):
     Participants[i].global_params = get_from_board("global_params")
 
 # public private key generation
+
+
+dealer.generate_key()
+combiner.generate_key()
+for i in range(participant_count):
+    Participants[i].generate_key()
+
+# verification of public keys stored in the bulletin (just to be sure)
+assert(dealer.public == get_from_board("public", "dealer"))
+assert(combiner.public == get_from_board("public", "combiner"))
+for i in range(participant_count):
+    assert(Participants[i].public == get_from_board("public", i))
