@@ -2,6 +2,15 @@ from tinyec.ec import SubGroup, Curve
 from random import randint
 from itertools import zip_longest
 
+
+# dummy hash functions, very weak
+def hash_h(num, params):
+    return num % params["m"]
+
+def hash_q(point, r):
+    return r * point
+
+
 class Bulletin:
     def __init__(self, n, id):
         self.stored_values = {"global_params": {"number_of_parts": n}}
@@ -33,6 +42,8 @@ class Bulletin:
             else:
                 return False
         else:
+            if type not in self.stored_values.keys():
+                self.stored_values[type] = {}
             self.stored_values[type][id] = value
         return True
 
@@ -56,7 +67,7 @@ class Not_Bulletin:
 
 
     def generate_key(self):
-        self.private = randint(0, self.global_params["m"] - 1)
+        self.private = randint(1, self.global_params["m"] - 1)
         self.public = self.private * self.global_params["Q"]
         while put_to_board(self.id, "public", self.public) == False:
             self.private = randint(0, self.global_params["m"] - 1)
@@ -75,17 +86,27 @@ class Dealer(Not_Bulletin):
         self.global_params["random_seed"] = randint(0, self.global_params["m"] - 1)
         put_to_board(self.id, "global_params", self.global_params)  
 
-    def generate_key(self):
-        self.private = randint(0, self.global_params["m"] - 1)
-        self.public = self.private * self.global_params["Q"]
-        put_to_board(self.id, "public", self.public)
+    def generate_combiner_secret(self):
+        combiner_public = get_from_board("public", "combiner")
+        self.combiner_secret = self.private * combiner_public
 
 class Combiner(Not_Bulletin):
-    pass
+    def generate_combiner_secret(self):
+        dealer_public = get_from_board("public", "dealer")
+        self.combiner_secret = self.private * dealer_public
 
 class Participant(Not_Bulletin):
-    pass
+    def compute_pseudo_share(self):
+        self.b = self.private * get_from_board("public", "dealer")
+        self.I = hash_q(self.b, self.global_params["random_seed"])
+        self.X = hash_h(self.I.x ^ self.I.y, self.global_params)
 
+    def verify_pseudo_share(self):
+        u_i = get_from_board("u", self.id)
+        big_gamma_i = get_from_board("big_gamma", self.id)
+        dealer_public = get_from_board("public", "dealer")
+        h_i = hash_h(self.X | self.id | big_gamma_i.x | big_gamma_i.y, self.global_params)
+        assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
 
 # the next part should have been in a config
 participant_count = 10
@@ -105,15 +126,56 @@ for i in range(participant_count):
     Participants[i].global_params = get_from_board("global_params")
 
 # public private key generation
-
-
 dealer.generate_key()
 combiner.generate_key()
 for i in range(participant_count):
     Participants[i].generate_key()
-
-# verification of public keys stored in the bulletin (just to be sure)
+            
 assert(dealer.public == get_from_board("public", "dealer"))
 assert(combiner.public == get_from_board("public", "combiner"))
 for i in range(participant_count):
     assert(Participants[i].public == get_from_board("public", i))
+
+
+# combiner secret computation
+dealer.generate_combiner_secret()
+combiner.generate_combiner_secret()
+
+assert(dealer.combiner_secret == combiner.combiner_secret)
+
+# pseudo share generation
+# dealer part
+dealer.b = {}
+dealer.I = {}
+dealer.X = {}
+for i in dealer.all_ids:
+    if i == "dealer" or i == "combiner" or i == "bulletin":
+        continue
+    participant_public = get_from_board("public", i)
+    dealer.b[i] = (dealer.private * participant_public)
+    dealer.I[i] = (hash_q(dealer.b[i], dealer.global_params["random_seed"]))
+    dealer.X[i] = (hash_h(dealer.I[i].x ^ dealer.I[i].y, dealer.global_params))
+    
+# individually for each participant
+for i in range(participant_count):
+    Participants[i].compute_pseudo_share()
+
+# pseudo share verification
+for i in dealer.all_ids:
+    if i == "dealer" or i == "combiner" or i == "bulletin":
+        continue
+    small_gamma_i = randint(1, dealer.global_params["m"] - 1)
+    big_gamma_i = small_gamma_i * dealer.global_params["Q"]
+    h_i = hash_h(dealer.X[i] | i | big_gamma_i.x | big_gamma_i.y, dealer.global_params)
+    u_i = small_gamma_i + (h_i * dealer.private)
+    put_to_board(i, "u", u_i)
+    put_to_board(i, "big_gamma", big_gamma_i)
+
+for i in range(participant_count):
+    Participants[i].verify_pseudo_share()
+
+print("\n")
+print("\n")
+
+# should i implement combiner ecret verification???
+# only mentioned offhandly in the paper
