@@ -21,3 +21,7 @@ Questions:
 1.
 # should i implement combiner ecret verification???
 # only mentioned offhandly in the paper
+
+2.
+# i dont see the point of combiner verification
+# the sharing process will anyways only allow the verified combiner to access the shares

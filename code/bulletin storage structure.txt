@@ -2,7 +2,8 @@ bulletin storage structure
 
 
 all_ids : list of ids
-
+-1 for combiner
+0 ...n-1 for participants
 
 stored_values -> global_params{}
                  key -> {id : value}
