@@ -190,6 +190,13 @@ class Combiner(Not_Bulletin):
             A = get_from_board("public", i)
             I = Ks[i] + (self.private * A)
             self.X[i] = hash_h(I.x ^ I.y, self.global_params)
+        temp = self.X
+        self.X = {}
+        for i in temp.keys():
+            if i == self.global_params["threshold"]:
+                break
+            self.X[i] = temp[i]
+
 
     def get_points(self):
         self.points = []
@@ -201,6 +208,7 @@ class Combiner(Not_Bulletin):
         for i in self.X.keys():
             y = get_from_board("Y", i)
             self.points.append(Data(self.X[i], y))
+        
 
 class Participant(Not_Bulletin):
     def compute_pseudo_share(self):
@@ -296,4 +304,54 @@ combiner.get_pseudo_share()
 
 combiner.get_points()
 
-pprint.pp(bulletin_board.stored_values)
+
+
+def function_from_values(solutions:list) -> list:
+    a = [1]
+    for x in solutions:
+        b = [0]
+        b.extend([-1*x*l for l in a])
+        a = [sum(y) for y in zip_longest(a, b, fillvalue=0)]
+    return a
+
+
+def add_points(y_values):
+    ans = 0
+    for y_value in y_values:
+        if ans == 0:
+            ans = y_value
+        else:
+            ans = y_value + ans
+    return ans
+
+def get_inverse(x, p):
+    ans = 1
+    for _ in range(p-2):
+        ans = (ans*x)%p
+    return ans
+
+def lagrange_interpolation(points, global_params):
+    func = []
+    for point in points:
+        temp = points.copy()
+        temp.remove(point)
+        p_i = [p.x for p in temp]
+        p_i = function_from_values(p_i)
+        denominator = 1
+        for p in temp:
+            denominator = denominator * (point.x - p.x)
+        multiplier = get_inverse(denominator, global_params["m"])
+        p_i = [(x*multiplier) % global_params["m"] for x in p_i]
+        p_i = [x*point.y for x in p_i]
+        func = [add_points(y) for y in zip_longest(func, p_i, fillvalue=0)]
+    return func
+
+combiner.reconstructed_function = lagrange_interpolation(combiner.points, combiner.global_params)
+combiner.reconstructed_function.reverse()
+
+reconstructed_secrets = []
+for i in range(combiner.global_params["k"]):
+    reconstructed_secrets.append(bulletin_board.stored_values["Z"][i] - combiner.reconstructed_function[i] - combiner.combiner_secret)
+
+pprint.pp(dealer.secrets)
+pprint.pp(reconstructed_secrets)
