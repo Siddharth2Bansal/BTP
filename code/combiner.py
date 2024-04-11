@@ -14,4 +14,6 @@ combiner.global_params["Q"] = combiner.global_params["curve"].g
 
 combiner.generate_key()
 
+combiner.generate_combiner_secret()
+
 pprint.pprint(combiner.global_params)

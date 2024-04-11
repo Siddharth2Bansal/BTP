@@ -2,7 +2,7 @@ from tinyec.ec import SubGroup, Curve, Inf, Point
 from random import randint
 from itertools import zip_longest
 import pprint
-from time import time
+import time
 import socket
 import json
 
@@ -31,14 +31,19 @@ class Bulletin:
         self.port = port
         self.socket = socket.socket()
         self.socket.bind(('', self.port))
-        self.socket.listen(5)
+        self.socket.listen(7)
 
     def get(self, type, id):
         if id == None:
+            if type not in self.stored_values.keys():
+                return 'not present'
             return self.stored_values[type]
         else:
-            return self.stored_values[type][id]
-
+            if type in self.stored_values.keys():
+                if id in self.stored_values[type].keys():
+                    return self.stored_values[type][id]
+            return 'not present'
+        
     def verify_key(self, id, key):
         flag = True
         for public_key in self.stored_values["public"]:
@@ -84,9 +89,16 @@ class Not_Bulletin:
         self.socket.connect((ip, self.bulletin_port))
         self.socket.send(json.dumps({"action":"get", "id": id, "type": type}).encode())
         data = self.socket.recv(2048).decode()
-        print(data)
         data = json.loads(data)
         self.socket.close()
+        while data == 'not present':
+            time.sleep(5)
+            self.socket = socket.socket()
+            self.socket.connect((ip, self.bulletin_port))
+            self.socket.send(json.dumps({"action":"get", "id": id, "type": type}).encode())
+            data = self.socket.recv(2048).decode()
+            data = json.loads(data)
+            self.socket.close()
         return data
         # return bulletin_board.get(type, id)
 
@@ -146,7 +158,7 @@ class Dealer(Not_Bulletin):
             big_gamma_i = small_gamma_i * self.global_params["Q"]
             h_i = hash_h(self.X[i] | i | big_gamma_i.x | big_gamma_i.y, self.global_params)
             u_i = small_gamma_i + (h_i * self.private)
-            self.put_to_board(i, "u", (u_i.x, u_i.y))
+            self.put_to_board(i, "u", u_i)
             self.put_to_board(i, "big_gamma", (big_gamma_i.x, big_gamma_i.y))
 
     # coeffs contains a0, a1, a2 ... an
@@ -206,7 +218,7 @@ class Combiner(Not_Bulletin):
         for i in self.all_ids:
             if i == "dealer" or i == -1 or i == "bulletin":
                 continue
-            t = int(time())
+            t = int(time.time())
             A = self.get_from_board("public", i)
             A = Point(self.global_params['curve'], A[0], A[1])
             v = self.private * hash_h((i | -1 | t), self.global_params) * A
@@ -308,7 +320,6 @@ class Participant(Not_Bulletin):
 
     def verify_pseudo_share(self):
         u_i = self.get_from_board("u", self.id)
-        u_i = Point(self.global_params['curve'], u_i[0], u_i[1])
         big_gamma_i = self.get_from_board("big_gamma", self.id)
         big_gamma_i = Point(self.global_params['curve'], big_gamma_i[0], big_gamma_i[1])
         dealer_public = self.get_from_board("public", "dealer")
@@ -375,7 +386,7 @@ class Participant(Not_Bulletin):
 
 # # should i implement combiner secret verification???
 # # only mentioned offhandly in the paper
-
+################################### done till here
 # dealer.secret_share()
 
 # dealer.generate_coefficients()
@@ -407,5 +418,5 @@ class Participant(Not_Bulletin):
 
 
 # CONFIGS
-participant_count = 4
-bulletin_port = 12345
+participant_count = 3
+bulletin_port = 12341
