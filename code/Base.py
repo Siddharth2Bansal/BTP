@@ -1,4 +1,4 @@
-from tinyec.ec import SubGroup, Curve, Inf
+from tinyec.ec import SubGroup, Curve, Inf, Point
 from random import randint
 from itertools import zip_longest
 import pprint
@@ -74,7 +74,7 @@ class Not_Bulletin:
     def generate_key(self):
         self.private = randint(1, self.global_params["m"] - 1)
         self.public = self.private * self.global_params["Q"]
-        while self.put_to_board(self.id, "public", self.public) == False:
+        while self.put_to_board(self.id, "public", (self.public.x, self.public.y)) == False:
             self.private = randint(0, self.global_params["m"] - 1)
             self.public = self.private * self.global_params["Q"]
 
@@ -122,6 +122,7 @@ class Dealer(Not_Bulletin):
 
     def generate_combiner_secret(self):
         combiner_public = self.get_from_board("public", -1)
+        combiner_public = Point(self.global_params["curve"], combiner_public[0], combiner_public[1])
         self.combiner_secret = self.private * combiner_public
 
     def generate_pseudo_shares(self):
@@ -132,6 +133,7 @@ class Dealer(Not_Bulletin):
             if i == "dealer" or i == -1 or i == "bulletin":
                 continue
             participant_public = self.get_from_board("public", i)
+            participant_public = Point(self.global_params["curve"], participant_public[0], participant_public[1])
             self.b[i] = (self.private * participant_public)
             self.I[i] = (hash_q(self.b[i], self.global_params["random_seed"]))
             self.X[i] = (hash_h(self.I[i].x ^ self.I[i].y, self.global_params))
@@ -144,8 +146,8 @@ class Dealer(Not_Bulletin):
             big_gamma_i = small_gamma_i * self.global_params["Q"]
             h_i = hash_h(self.X[i] | i | big_gamma_i.x | big_gamma_i.y, self.global_params)
             u_i = small_gamma_i + (h_i * self.private)
-            self.put_to_board(i, "u", u_i)
-            self.put_to_board(i, "big_gamma", big_gamma_i)
+            self.put_to_board(i, "u", (u_i.x, u_i.y))
+            self.put_to_board(i, "big_gamma", (big_gamma_i.x, big_gamma_i.y))
 
     # coeffs contains a0, a1, a2 ... an
     def f(self, x):
@@ -168,14 +170,16 @@ class Dealer(Not_Bulletin):
         for i in self.all_ids:
             if i == "dealer" or i == -1 or i == "bulletin":
                 continue
-            self.put_to_board(i, "Y", self.f(self.X[i]) * self.global_params["Q"])
+            Y = self.f(self.X[i]) * self.global_params["Q"]
+            self.put_to_board(i, "Y", (Y.x, Y.y))
         if self.global_params["k"] >= self.global_params["threshold"]:
             for i in range(self.global_params["k"] - self.global_params["threshold"]):
                 r = randint(1, self.global_params["m"] - 1) 
                 while r in self.X:
                     r = randint(1, self.global_params["m"] - 1)
-                self.put_to_board(i, "public_r", r)
-                self.put_to_board(i, "public_lambda", self.f(r) * self.global_params["Q"])
+                self.put_to_board(i, "public_r", (r.x, r.y))
+                lamb = self.f(r) * self.global_params["Q"]
+                self.put_to_board(i, "public_lambda", (lamb.x, lamb.y))
             
     def secret_share(self):        
         self.secrets = []
@@ -188,13 +192,14 @@ class Dealer(Not_Bulletin):
             self.pseudo_secrets.append(s)
             W = s * self.global_params["Q"]
             Zi = W + S + self.combiner_secret
-            self.put_to_board(i, "Z", Zi)
+            self.put_to_board(i, "Z", (Zi.x, Zi.y))
 
 
 
 class Combiner(Not_Bulletin):
     def generate_combiner_secret(self):
         dealer_public = self.get_from_board("public", "dealer")
+        dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
         self.combiner_secret = self.private * dealer_public
 
     def combiner_verifier(self):    
@@ -203,17 +208,21 @@ class Combiner(Not_Bulletin):
                 continue
             t = int(time())
             A = self.get_from_board("public", i)
+            A = Point(self.global_params['curve'], A[0], A[1])
             v = self.private * hash_h((i | -1 | t), self.global_params) * A
-            self.put_to_board(i, "v", v)
+            self.put_to_board(i, "v", (v.x, v.y))
             self.put_to_board(i, "t", t) 
     
     def get_pseudo_share(self):
         Ks = self.get_from_board("K")
         if(Ks.__len__() < self.global_params["threshold"]):
             Ks = self.get_from_board("K")
+        for i in Ks.keys():
+            Ks[i] = Point(self.global_params['curve'], Ks[i][0], Ks[i][1])
         self.X = {}
         for i in Ks.keys():
             A = self.get_from_board("public", i)
+            A = Point(self.global_params['curve'], A[0], A[1])
             I = Ks[i] + (self.private * A)
             self.X[i] = hash_h(I.x ^ I.y, self.global_params)
         temp = self.X
@@ -229,10 +238,13 @@ class Combiner(Not_Bulletin):
         if self.global_params["k"] >= self.global_params["threshold"]:
             for i in range(self.global_params["k"] - self.global_params["threshold"]):
                 r = self.get_from_board("public_r", i)
+                r = Point(self.global_params['curve'], r[0], r[1])
                 Lambda = self.get_from_board("public_lambda", i)
+                Lambda = Point(self.global_params['curve'], Lambda[0], Lambda[1])
                 self.points.append(Data(r, Lambda))
         for i in self.X.keys():
             y = self.get_from_board("Y", i)
+            y = Point(self.global_params['curve'], y[0], y[1])
             self.points.append(Data(self.X[i], y))
         
 
@@ -281,32 +293,42 @@ class Combiner(Not_Bulletin):
         reconstructed_function = self.lagrange_interpolation(points, self.global_params)
         self.reconstruted_secrets = []
         for i in range(self.global_params["k"]):
-            self.reconstruted_secrets.append(self.get_from_board("Z", i) - reconstructed_function[i] - self.combiner_secret)
+            Z = self.get_from_board("Z", i)
+            Z = Point(self.global_params['curve'], Z[0], Z[1])
+            self.reconstruted_secrets.append(Z - reconstructed_function[i] - self.combiner_secret)
         return self.reconstruted_secrets
 
 class Participant(Not_Bulletin):
     def compute_pseudo_share(self):
-        self.b = self.private * self.get_from_board("public", "dealer")
+        dealer_public = self.get_from_board("public", "dealer")
+        dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
+        self.b = self.private * dealer_public
         self.I = hash_q(self.b, self.global_params["random_seed"])
         self.X = hash_h(self.I.x ^ self.I.y, self.global_params)
 
     def verify_pseudo_share(self):
         u_i = self.get_from_board("u", self.id)
+        u_i = Point(self.global_params['curve'], u_i[0], u_i[1])
         big_gamma_i = self.get_from_board("big_gamma", self.id)
+        big_gamma_i = Point(self.global_params['curve'], big_gamma_i[0], big_gamma_i[1])
         dealer_public = self.get_from_board("public", "dealer")
+        dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
         h_i = hash_h(self.X | self.id | big_gamma_i.x | big_gamma_i.y, self.global_params)
         assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
 
     def verify_combiner(self):
         v = self.get_from_board("v", self.id)
+        v = Point(self.global_params['curve'], v[0], v[1])
         t = self.get_from_board("t", self.id)
         A = self.get_from_board("public", -1)
+        A = Point(self.global_params['curve'], A[0], A[1])
         assert(v == self.private * hash_h((self.id | -1 | t), self.global_params) * A)
     
     def transfer_pseudo_shares(self):
         A = self.get_from_board("public", -1)
+        A = Point(self.global_params['curve'], A[0], A[1])
         K = self.I - (self.private * A)
-        self.put_to_board(self.id, "K", K)
+        self.put_to_board(self.id, "K", (K.x, K.y))
 
 # # the next part should have been in a config
 # participant_count = 4
