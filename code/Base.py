@@ -1,9 +1,10 @@
-from tinyec.ec import SubGroup, Curve
+from tinyec.ec import SubGroup, Curve, Inf
 from random import randint
 from itertools import zip_longest
 import pprint
 from time import time
-
+import socket
+import json
 
 # dummy hash functions, very weak
 def hash_h(num, params):
@@ -20,13 +21,17 @@ class Data:
 
 
 class Bulletin:
-    def __init__(self, n, id):
+    def __init__(self, n, id, port = 12345):
         self.stored_values = {"global_params": {"number_of_parts": n}}
         self.stored_values["public"] = {}
         self.all_ids = ["bulletin", "dealer", -1]
         for i in range(n):
             self.all_ids.append(i)
         self.id = id
+        self.port = port
+        self.socket = socket.socket()
+        self.socket.bind(('', self.port))
+        self.socket.listen(5)
 
     def get(self, type, id):
         if id == None:
@@ -54,32 +59,50 @@ class Bulletin:
                 self.stored_values[type] = {}
             self.stored_values[type][id] = value
         return True
-
-
-# get from board to be updated
-def get_from_board(type, id = None):
-    return bulletin_board.get(type, id)
-
-# put to board to be updated
-def put_to_board(id, key, value):
-    return bulletin_board.put(id, key, value)
-
+ 
 
 class Not_Bulletin:
-    def __init__(self, n, id):
+    def __init__(self, n, id, port = 12345):
         self.global_params = {"number_of_parts": n}
         self.all_ids = ["bulletin", "dealer", -1]
         for i in range(n):
             self.all_ids.append(i)
         self.id = id
+        self.bulletin_port = port
 
 
     def generate_key(self):
         self.private = randint(1, self.global_params["m"] - 1)
         self.public = self.private * self.global_params["Q"]
-        while put_to_board(self.id, "public", self.public) == False:
+        while self.put_to_board(self.id, "public", self.public) == False:
             self.private = randint(0, self.global_params["m"] - 1)
             self.public = self.private * self.global_params["Q"]
+
+    # get from board to be updated
+    def get_from_board(self, type, id = None, ip = '127.0.0.1'):
+        self.socket = socket.socket()
+        self.socket.connect((ip, self.bulletin_port))
+        self.socket.send(json.dumps({"action":"get", "id": id, "type": type}).encode())
+        data = self.socket.recv(2048).decode()
+        print(data)
+        data = json.loads(data)
+        self.socket.close()
+        return data
+        # return bulletin_board.get(type, id)
+
+    # put to board to be updated
+    def put_to_board(self, id, key, value, ip = '127.0.0.1'):
+        self.socket = socket.socket()
+        self.socket.connect((ip, self.bulletin_port))
+        self.socket.send(json.dumps({"action":"put", "id": id, "key": key, "value": value}).encode())
+        if self.socket.recv(2048).decode() == "False":
+            self.socket.close()
+            return False
+        self.socket.close()
+        return True
+        # self.socket.send("put")
+        # return bulletin_board.put(id, key, value)
+
 
 class Dealer(Not_Bulletin):
 
@@ -88,14 +111,17 @@ class Dealer(Not_Bulletin):
         self.global_params['k'] = 2
         self.global_params["threshold"] = 3
         self.global_params["q"] = 113
-        field = SubGroup(p=self.global_params["q"], g=(6, 2), n=self.global_params["m"], h=1)
-        self.global_params["curve"] = Curve(a=1, b=8, field=field, name='Sid')
-        self.global_params["Q"] = self.global_params["curve"].g
+        self.global_params["Q"] = (6, 2)
+        self.global_params['a'] = 1
+        self.global_params['b'] = 8
         self.global_params["random_seed"] = randint(0, self.global_params["m"] - 1)
-        put_to_board(self.id, "global_params", self.global_params)  
+        self.put_to_board(self.id, "global_params", self.global_params)
+        field = SubGroup(p=self.global_params["q"], g=self.global_params["Q"], n=self.global_params["m"], h=1)
+        self.global_params["curve"] = Curve(a=self.global_params['a'], b=self.global_params['b'], field=field, name='Sid')
+        self.global_params["Q"] = self.global_params["curve"].g
 
     def generate_combiner_secret(self):
-        combiner_public = get_from_board("public", -1)
+        combiner_public = self.get_from_board("public", -1)
         self.combiner_secret = self.private * combiner_public
 
     def generate_pseudo_shares(self):
@@ -105,7 +131,7 @@ class Dealer(Not_Bulletin):
         for i in self.all_ids:
             if i == "dealer" or i == -1 or i == "bulletin":
                 continue
-            participant_public = get_from_board("public", i)
+            participant_public = self.get_from_board("public", i)
             self.b[i] = (self.private * participant_public)
             self.I[i] = (hash_q(self.b[i], self.global_params["random_seed"]))
             self.X[i] = (hash_h(self.I[i].x ^ self.I[i].y, self.global_params))
@@ -118,15 +144,15 @@ class Dealer(Not_Bulletin):
             big_gamma_i = small_gamma_i * self.global_params["Q"]
             h_i = hash_h(self.X[i] | i | big_gamma_i.x | big_gamma_i.y, self.global_params)
             u_i = small_gamma_i + (h_i * self.private)
-            put_to_board(i, "u", u_i)
-            put_to_board(i, "big_gamma", big_gamma_i)
+            self.put_to_board(i, "u", u_i)
+            self.put_to_board(i, "big_gamma", big_gamma_i)
 
     # coeffs contains a0, a1, a2 ... an
     def f(self, x):
         val = 0
         i = 0
         for a in self.coeffs:
-            val = (val + (a * (x**i)))% dealer.global_params["m"]
+            val = (val + (a * (x**i)))% self.global_params["m"]
             i += 1
         return val 
 
@@ -142,14 +168,14 @@ class Dealer(Not_Bulletin):
         for i in self.all_ids:
             if i == "dealer" or i == -1 or i == "bulletin":
                 continue
-            put_to_board(i, "Y", self.f(self.X[i]) * self.global_params["Q"])
+            self.put_to_board(i, "Y", self.f(self.X[i]) * self.global_params["Q"])
         if self.global_params["k"] >= self.global_params["threshold"]:
             for i in range(self.global_params["k"] - self.global_params["threshold"]):
                 r = randint(1, self.global_params["m"] - 1) 
                 while r in self.X:
                     r = randint(1, self.global_params["m"] - 1)
-                put_to_board(i, "public_r", r)
-                put_to_board(i, "public_lambda", self.f(r) * self.global_params["Q"])
+                self.put_to_board(i, "public_r", r)
+                self.put_to_board(i, "public_lambda", self.f(r) * self.global_params["Q"])
             
     def secret_share(self):        
         self.secrets = []
@@ -162,13 +188,13 @@ class Dealer(Not_Bulletin):
             self.pseudo_secrets.append(s)
             W = s * self.global_params["Q"]
             Zi = W + S + self.combiner_secret
-            put_to_board(i, "Z", Zi)
+            self.put_to_board(i, "Z", Zi)
 
 
 
 class Combiner(Not_Bulletin):
     def generate_combiner_secret(self):
-        dealer_public = get_from_board("public", "dealer")
+        dealer_public = self.get_from_board("public", "dealer")
         self.combiner_secret = self.private * dealer_public
 
     def combiner_verifier(self):    
@@ -176,18 +202,18 @@ class Combiner(Not_Bulletin):
             if i == "dealer" or i == -1 or i == "bulletin":
                 continue
             t = int(time())
-            A = get_from_board("public", i)
+            A = self.get_from_board("public", i)
             v = self.private * hash_h((i | -1 | t), self.global_params) * A
-            put_to_board(i, "v", v)
-            put_to_board(i, "t", t) 
+            self.put_to_board(i, "v", v)
+            self.put_to_board(i, "t", t) 
     
     def get_pseudo_share(self):
-        Ks = get_from_board("K")
+        Ks = self.get_from_board("K")
         if(Ks.__len__() < self.global_params["threshold"]):
-            Ks = get_from_board("K")
+            Ks = self.get_from_board("K")
         self.X = {}
         for i in Ks.keys():
-            A = get_from_board("public", i)
+            A = self.get_from_board("public", i)
             I = Ks[i] + (self.private * A)
             self.X[i] = hash_h(I.x ^ I.y, self.global_params)
         temp = self.X
@@ -202,156 +228,162 @@ class Combiner(Not_Bulletin):
         self.points = []
         if self.global_params["k"] >= self.global_params["threshold"]:
             for i in range(self.global_params["k"] - self.global_params["threshold"]):
-                r = get_from_board("public_r", i)
-                Lambda = get_from_board("public_lambda", i)
+                r = self.get_from_board("public_r", i)
+                Lambda = self.get_from_board("public_lambda", i)
                 self.points.append(Data(r, Lambda))
         for i in self.X.keys():
-            y = get_from_board("Y", i)
+            y = self.get_from_board("Y", i)
             self.points.append(Data(self.X[i], y))
         
 
+    def function_from_values(self, solutions:list) -> list:
+        a = [1]
+        for x in solutions:
+            b = [0]
+            b.extend([-1*x*l for l in a])
+            a = [sum(y) for y in zip_longest(a, b, fillvalue=0)]
+        return a
+
+
+    def add_points(self, y_values):
+        ans = 0
+        for y_value in y_values:
+            if ans == 0 or isinstance(ans, Inf):
+                ans = y_value
+            else:
+                ans = y_value + ans
+        return ans
+
+    def get_inverse(self, x, p):
+        ans = 1
+        for _ in range(p-2):
+            ans = (ans*x)%p
+        return ans
+
+    def lagrange_interpolation(self, points, global_params):
+        func = []
+        for point in points:
+            temp = points.copy()
+            temp.remove(point)
+            p_i = [p.x for p in temp]
+            p_i = self.function_from_values(p_i)
+            denominator = 1
+            for p in temp:
+                denominator = denominator * (point.x - p.x)
+            multiplier = self.get_inverse(denominator, global_params["m"])
+            p_i = [(x*multiplier) % global_params["m"] for x in p_i]
+            p_i = [x*point.y for x in p_i]
+            func = [self.add_points(y) for y in zip_longest(func, p_i, fillvalue=0)]
+        func.reverse()
+        return func
+
+    def reconstrut_values(self, points):
+        reconstructed_function = self.lagrange_interpolation(points, self.global_params)
+        self.reconstruted_secrets = []
+        for i in range(self.global_params["k"]):
+            self.reconstruted_secrets.append(self.get_from_board("Z", i) - reconstructed_function[i] - self.combiner_secret)
+        return self.reconstruted_secrets
+
 class Participant(Not_Bulletin):
     def compute_pseudo_share(self):
-        self.b = self.private * get_from_board("public", "dealer")
+        self.b = self.private * self.get_from_board("public", "dealer")
         self.I = hash_q(self.b, self.global_params["random_seed"])
         self.X = hash_h(self.I.x ^ self.I.y, self.global_params)
 
     def verify_pseudo_share(self):
-        u_i = get_from_board("u", self.id)
-        big_gamma_i = get_from_board("big_gamma", self.id)
-        dealer_public = get_from_board("public", "dealer")
+        u_i = self.get_from_board("u", self.id)
+        big_gamma_i = self.get_from_board("big_gamma", self.id)
+        dealer_public = self.get_from_board("public", "dealer")
         h_i = hash_h(self.X | self.id | big_gamma_i.x | big_gamma_i.y, self.global_params)
         assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
 
     def verify_combiner(self):
-        v = get_from_board("v", self.id)
-        t = get_from_board("t", self.id)
-        A = get_from_board("public", -1)
+        v = self.get_from_board("v", self.id)
+        t = self.get_from_board("t", self.id)
+        A = self.get_from_board("public", -1)
         assert(v == self.private * hash_h((self.id | -1 | t), self.global_params) * A)
     
     def transfer_pseudo_shares(self):
-        A = get_from_board("public", -1)
+        A = self.get_from_board("public", -1)
         K = self.I - (self.private * A)
-        put_to_board(self.id, "K", K)
+        self.put_to_board(self.id, "K", K)
 
-# the next part should have been in a config
-participant_count = 4
+# # the next part should have been in a config
+# participant_count = 4
 
 
-# init the entities
-bulletin_board = Bulletin(participant_count, "bulletin")
-dealer = Dealer(participant_count, "dealer")
-combiner = Combiner(participant_count, -1)
-Participants = [Participant(participant_count, i) for i in range(participant_count)]
+# # init the entities
+# bulletin_board = Bulletin(participant_count, "bulletin")
+# dealer = Dealer(participant_count, "dealer")
+# combiner = Combiner(participant_count, -1)
+# Participants = [Participant(participant_count, i) for i in range(participant_count)]
 
-# initialise the global params
-dealer.initialise_global_params()
+# # initialise the global params
+# dealer.initialise_global_params()
 
-combiner.global_params = get_from_board("global_params")
-for i in range(participant_count):
-    Participants[i].global_params = get_from_board("global_params")
+# combiner.global_params = combiner.get_from_board("global_params")
+# for i in range(participant_count):
+#     Participants[i].global_params = Participants[i].get_from_board("global_params")
 
-# public private key generation
-dealer.generate_key()
-combiner.generate_key()
-for i in range(participant_count):
-    Participants[i].generate_key()
+# # public private key generation
+# dealer.generate_key()
+# combiner.generate_key()
+# for i in range(participant_count):
+#     Participants[i].generate_key()
 
-# combiner secret computation
-dealer.generate_combiner_secret()
-combiner.generate_combiner_secret()
+# # combiner secret computation
+# dealer.generate_combiner_secret()
+# combiner.generate_combiner_secret()
 
-assert(dealer.combiner_secret == combiner.combiner_secret)
+# assert(dealer.combiner_secret == combiner.combiner_secret)
 
-# pseudo share generation
-dealer.generate_pseudo_shares()
+# # pseudo share generation
+# dealer.generate_pseudo_shares()
     
-# individually for each participant
-for i in range(participant_count):
-    Participants[i].compute_pseudo_share()
+# # individually for each participant
+# for i in range(participant_count):
+#     Participants[i].compute_pseudo_share()
 
-# pseudo share verification
-dealer.pseudo_share_verifier()
+# # pseudo share verification
+# dealer.pseudo_share_verifier()
 
-for i in range(participant_count):
-    Participants[i].verify_pseudo_share()
-
-
-# should i implement combiner secret verification???
-# only mentioned offhandly in the paper
-
-dealer.secret_share()
-
-dealer.generate_coefficients()
-
-dealer.generate_public_share()
+# for i in range(participant_count):
+#     Participants[i].verify_pseudo_share()
 
 
-# combiner verification
+# # should i implement combiner secret verification???
+# # only mentioned offhandly in the paper
 
-combiner.combiner_verifier()
+# dealer.secret_share()
 
-for i in range(participant_count):
-    Participants[i].verify_combiner()
+# dealer.generate_coefficients()
 
-
-# transfer pseudo shares to combiner
-
-for i in range(participant_count):
-    Participants[i].transfer_pseudo_shares()
-
-combiner.get_pseudo_share()
-
-combiner.get_points()
+# dealer.generate_public_share()
 
 
+# # combiner verification
 
-def function_from_values(solutions:list) -> list:
-    a = [1]
-    for x in solutions:
-        b = [0]
-        b.extend([-1*x*l for l in a])
-        a = [sum(y) for y in zip_longest(a, b, fillvalue=0)]
-    return a
+# combiner.combiner_verifier()
+
+# for i in range(participant_count):
+#     Participants[i].verify_combiner()
 
 
-def add_points(y_values):
-    ans = 0
-    for y_value in y_values:
-        if ans == 0:
-            ans = y_value
-        else:
-            ans = y_value + ans
-    return ans
+# # transfer pseudo shares to combiner
 
-def get_inverse(x, p):
-    ans = 1
-    for _ in range(p-2):
-        ans = (ans*x)%p
-    return ans
+# for i in range(participant_count):
+#     Participants[i].transfer_pseudo_shares()
 
-def lagrange_interpolation(points, global_params):
-    func = []
-    for point in points:
-        temp = points.copy()
-        temp.remove(point)
-        p_i = [p.x for p in temp]
-        p_i = function_from_values(p_i)
-        denominator = 1
-        for p in temp:
-            denominator = denominator * (point.x - p.x)
-        multiplier = get_inverse(denominator, global_params["m"])
-        p_i = [(x*multiplier) % global_params["m"] for x in p_i]
-        p_i = [x*point.y for x in p_i]
-        func = [add_points(y) for y in zip_longest(func, p_i, fillvalue=0)]
-    return func
+# combiner.get_pseudo_share()
 
-combiner.reconstructed_function = lagrange_interpolation(combiner.points, combiner.global_params)
-combiner.reconstructed_function.reverse()
+# combiner.get_points()
 
-reconstructed_secrets = []
-for i in range(combiner.global_params["k"]):
-    reconstructed_secrets.append(bulletin_board.stored_values["Z"][i] - combiner.reconstructed_function[i] - combiner.combiner_secret)
+# reconstructed_secrets = combiner.reconstrut_values(combiner.points)
 
-pprint.pp(dealer.secrets)
-pprint.pp(reconstructed_secrets)
+# pprint.pp(dealer.secrets)
+# pprint.pp(reconstructed_secrets)
+
+
+# CONFIGS
+participant_count = 4
+bulletin_port = 12345

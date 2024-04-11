@@ -1,24 +1,25 @@
 import Base
 import socket             
- 
-s = socket.socket()         
-port = 12345               
- 
+import json
+import pprint
 
-participant_count = 4
-
-bulletin_board = Base.Bulletin(participant_count, "bulletin")
-
-s.bind(('', port))         
- 
-s.listen(5)     
+participant_count = Base.participant_count
+bulletin_port = Base.bulletin_port
+bulletin_board = Base.Bulletin(participant_count, "bulletin", bulletin_port)
+      
  
 while True: 
-# Establish connection with client. 
-  c, addr = s.accept()     
-  print(addr, " connected")
+    connection, addr = bulletin_board.socket.accept()     
+    print ('Got connection from', addr )
+    connection_string = connection.recv(2048)
+    data = json.loads(connection_string)
+    if data['action'] == "put":
+        ret_code = bulletin_board.put(data["id"], data["key"], data["value"])
+        connection.send(str(ret_code).encode())
+        pprint.pp(bulletin_board.stored_values)
+    elif data['action'] == "get":
+        ret_data = bulletin_board.get(data["type"], data["id"])
+        connection.send(json.dumps(ret_data).encode())
 
-  c.close()
-   
-  # Breaking once connection closed
-  break
+
+    connection.close()

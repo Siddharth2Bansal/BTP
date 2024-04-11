@@ -25,3 +25,8 @@ Questions:
 2.
 # i dont see the point of combiner verification
 # the sharing process will anyways only allow the verified combiner to access the shares
+
+
+quirks:
+1. not storing the curve details in the bulletin board as sharing tinyec elements over board is not fesible and saving curve implementation in the board is unnecessary.
+2. sharing the points over the network is done as (x, y) pairs instead of the point class, due to the difficulty with sending tinyec elements.
