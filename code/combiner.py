@@ -16,4 +16,11 @@ combiner.generate_key()
 
 combiner.generate_combiner_secret()
 
-pprint.pprint(combiner.global_params)
+combiner.combiner_verifier()
+
+combiner.get_pseudo_share()
+
+combiner.get_points()
+
+reconstructed_secret = combiner.reconstrut_values(combiner.points)
+pprint.pp(reconstructed_secret)

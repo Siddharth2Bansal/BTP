@@ -18,4 +18,8 @@ participant.compute_pseudo_share()
 
 participant.verify_pseudo_share()
 
+if participant.verify_combiner():
+    participant.transfer_pseudo_shares()
+
+
 # pprint.pprint(participant.global_params)

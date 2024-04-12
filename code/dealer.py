@@ -1,4 +1,5 @@
 import Base
+import pprint
 
 participant_count = Base.participant_count
 bulletin_port = Base.bulletin_port
@@ -14,3 +15,11 @@ dealer.generate_combiner_secret()
 dealer.generate_pseudo_shares()
 
 dealer.pseudo_share_verifier()
+
+dealer.secret_share()
+
+dealer.generate_coefficients()
+
+dealer.generate_public_share()
+
+pprint.pp(dealer.secrets)

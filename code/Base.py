@@ -229,6 +229,10 @@ class Combiner(Not_Bulletin):
         Ks = self.get_from_board("K")
         if(Ks.__len__() < self.global_params["threshold"]):
             Ks = self.get_from_board("K")
+        temp = Ks
+        Ks = {}
+        for i in temp.keys():
+            Ks[int(i)] = temp[i]
         for i in Ks.keys():
             Ks[i] = Point(self.global_params['curve'], Ks[i][0], Ks[i][1])
         self.X = {}
@@ -333,7 +337,10 @@ class Participant(Not_Bulletin):
         t = self.get_from_board("t", self.id)
         A = self.get_from_board("public", -1)
         A = Point(self.global_params['curve'], A[0], A[1])
-        assert(v == self.private * hash_h((self.id | -1 | t), self.global_params) * A)
+        if v == self.private * hash_h((self.id | -1 | t), self.global_params) * A:
+            return True
+        return False
+        # assert(v == self.private * hash_h((self.id | -1 | t), self.global_params) * A)
     
     def transfer_pseudo_shares(self):
         A = self.get_from_board("public", -1)
@@ -419,4 +426,4 @@ class Participant(Not_Bulletin):
 
 # CONFIGS
 participant_count = 3
-bulletin_port = 12341
+bulletin_port = 12345
