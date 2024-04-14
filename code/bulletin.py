@@ -10,7 +10,6 @@ bulletin_board = Base.Bulletin(participant_count, "bulletin", bulletin_port)
  
 while True: 
     connection, addr = bulletin_board.socket.accept()     
-    print ('Got connection from', addr )
     connection_string = connection.recv(2048)
     data = json.loads(connection_string)
     if data['action'] == "put":
@@ -20,6 +19,6 @@ while True:
     elif data['action'] == "get":
         ret_data = bulletin_board.get(data["type"], data["id"])
         connection.send(json.dumps(ret_data).encode())
-
+    print("executed action: ", data['action'], " for id: ", data["id"], "with type: ", data["type"])
 
     connection.close()

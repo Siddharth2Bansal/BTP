@@ -348,10 +348,8 @@ class Participant(Not_Bulletin):
         K = self.I - (self.private * A)
         self.put_to_board(self.id, "K", (K.x, K.y))
 
-# # the next part should have been in a config
-# participant_count = 4
 
-
+################################# combined flow of the algorithm
 # # init the entities
 # bulletin_board = Bulletin(participant_count, "bulletin")
 # dealer = Dealer(participant_count, "dealer")
@@ -390,10 +388,9 @@ class Participant(Not_Bulletin):
 # for i in range(participant_count):
 #     Participants[i].verify_pseudo_share()
 
-
 # # should i implement combiner secret verification???
 # # only mentioned offhandly in the paper
-################################### done till here
+
 # dealer.secret_share()
 
 # dealer.generate_coefficients()
@@ -427,3 +424,4 @@ class Participant(Not_Bulletin):
 # CONFIGS
 participant_count = 3
 bulletin_port = 12345
+wait_for_phases = False

@@ -6,20 +6,21 @@ known bugs:
 left out:
 proper hash functions
 ~~verification of pseudo shares~~
-combiner verification phase
+~~combiner verification phase~~
 ~~transfer of pseudo shares to combiner~~
 ~~need to set up debugger~~
 pseudo share verification by combiner
 ~~lagrange interpolation somehow not giving correct answers, need to test with dry runs need to check the function "f" for zero values~~
 Security analysis
-separation of code into the different entities
-    currently working on
-socket programming and separating code into different classes
-
+~~separation of code into the different entities~~
+    ~~currently working on~~
+~~socket programming and separating code into different classes~~
+currently infinitely pinging the board every 5 seconds on failed requests,  need to keep a threshold here for cases with information withholding.
+need to add method for bulletin to turn off at the end
 
 Questions:
 1.
-# should i implement combiner ecret verification???
+# should i implement combiner secret verification???
 # only mentioned offhandly in the paper
 
 2.
