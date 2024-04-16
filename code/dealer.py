@@ -39,4 +39,5 @@ print("generating public shares for the participants using the pseudo secrets.")
 dealer.generate_coefficients()
 dealer.generate_public_share()
 
+dealer.signal_done()
 print("Dealer part done!!")

@@ -33,6 +33,9 @@ if wait_for_phases:
 print("fetching pseudo shares from the participants.")
 combiner.get_pseudo_share()
 
+print("verifying pseudo shares")
+combiner.verify_pseudo_shares()
+
 if wait_for_phases:
     input("press enter to continue to reconstruction of the secrets.")
 print("reconstructing the secret using the pseudo shares.")
@@ -41,4 +44,5 @@ reconstructed_secret = combiner.reconstrut_values(combiner.points)
 
 print(f"the secrets reconstructed from the pseudo shares are: {reconstructed_secret}.")
 
+combiner.signal_done()
 print("Combiner part done!!")

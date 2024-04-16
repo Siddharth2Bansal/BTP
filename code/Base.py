@@ -5,13 +5,15 @@ import pprint
 import time
 import socket
 import json
+from hashlib import sha256
 
 # dummy hash functions, very weak
 def hash_h(num, params):
-    return num % params["m"]
+    return int(sha256(str(num).encode()).hexdigest(), 16) % params["m"]
 
-def hash_q(point, r):
-    return r * point
+def hash_q(point, r, params):
+    multiplier = int(sha256(str(point.x | point.y | r).encode()).hexdigest(), 16) % params["m"]
+    return multiplier * point
 
 
 class Data:
@@ -24,6 +26,7 @@ class Bulletin:
     def __init__(self, n, id, port = 12345):
         self.stored_values = {"global_params": {"number_of_parts": n}}
         self.stored_values["public"] = {}
+        self.stored_values["done"] = ["bulletin"]
         self.all_ids = ["bulletin", "dealer", -1]
         for i in range(n):
             self.all_ids.append(i)
@@ -64,6 +67,12 @@ class Bulletin:
                 self.stored_values[type] = {}
             self.stored_values[type][id] = value
         return True
+
+    def done(self):
+        if all(x in self.stored_values["done"] for x in self.all_ids):
+            return True
+        else:
+            return False
  
 
 class Not_Bulletin:
@@ -91,7 +100,11 @@ class Not_Bulletin:
         data = self.socket.recv(2048).decode()
         data = json.loads(data)
         self.socket.close()
+        pings = 1
         while data == 'not present':
+            if pings == ping_threshold:
+                data = None
+                break
             time.sleep(5)
             self.socket = socket.socket()
             self.socket.connect((ip, self.bulletin_port))
@@ -99,6 +112,8 @@ class Not_Bulletin:
             data = self.socket.recv(2048).decode()
             data = json.loads(data)
             self.socket.close()
+            pings += 1
+        assert(data != None)
         return data
         # return bulletin_board.get(type, id)
 
@@ -114,6 +129,13 @@ class Not_Bulletin:
         return True
         # self.socket.send("put")
         # return bulletin_board.put(id, key, value)
+    
+    def signal_done(self, ip = '127.0.0.1'):
+        self.socket = socket.socket()
+        self.socket.connect((ip, self.bulletin_port))
+        self.socket.send(json.dumps({"action":"done", "id": self.id}).encode())
+        self.socket.close()
+         
 
 
 class Dealer(Not_Bulletin):
@@ -147,7 +169,7 @@ class Dealer(Not_Bulletin):
             participant_public = self.get_from_board("public", i)
             participant_public = Point(self.global_params["curve"], participant_public[0], participant_public[1])
             self.b[i] = (self.private * participant_public)
-            self.I[i] = (hash_q(self.b[i], self.global_params["random_seed"]))
+            self.I[i] = (hash_q(self.b[i], self.global_params["random_seed"], self.global_params))
             self.X[i] = (hash_h(self.I[i].x ^ self.I[i].y, self.global_params))
 
     def pseudo_share_verifier(self):
@@ -248,6 +270,15 @@ class Combiner(Not_Bulletin):
                 break
             self.X[i] = temp[i]
 
+    def verify_pseudo_shares(self):
+        for id, share in self.X.items():
+            u_i = self.get_from_board("u", id)
+            big_gamma_i = self.get_from_board("big_gamma", id)
+            big_gamma_i = Point(self.global_params['curve'], big_gamma_i[0], big_gamma_i[1])
+            dealer_public = self.get_from_board("public", "dealer")
+            dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
+            h_i = hash_h(share | id | big_gamma_i.x | big_gamma_i.y, self.global_params)
+            assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
 
     def get_points(self):
         self.points = []
@@ -319,7 +350,7 @@ class Participant(Not_Bulletin):
         dealer_public = self.get_from_board("public", "dealer")
         dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
         self.b = self.private * dealer_public
-        self.I = hash_q(self.b, self.global_params["random_seed"])
+        self.I = hash_q(self.b, self.global_params["random_seed"], self.global_params)
         self.X = hash_h(self.I.x ^ self.I.y, self.global_params)
 
     def verify_pseudo_share(self):
@@ -423,5 +454,6 @@ class Participant(Not_Bulletin):
 
 # CONFIGS
 participant_count = 3
-bulletin_port = 12345
+bulletin_port = 12348
 wait_for_phases = False
+ping_threshold = 7

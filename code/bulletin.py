@@ -19,6 +19,14 @@ while True:
     elif data['action'] == "get":
         ret_data = bulletin_board.get(data["type"], data["id"])
         connection.send(json.dumps(ret_data).encode())
-    print("executed action: ", data['action'], " for id: ", data["id"], "with type: ", data["type"])
+    elif data['action'] == "done":
+        bulletin_board.stored_values["done"].append(data["id"])
+    # print("executed action: ", data['action'], " for id: ", data["id"], "with type: ", data["key"])
+    print("executed action: ", data)
 
     connection.close()
+    if bulletin_board.done():
+        bulletin_board.socket.close()
+        break
+
+print("Bulletin Shutting down.")

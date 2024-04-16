@@ -38,4 +38,5 @@ print("if the combiner is verified, transfering the pseudo shares.")
 if participant.verify_combiner():
     participant.transfer_pseudo_shares()
 
+participant.signal_done()
 print("Participant part done!!")

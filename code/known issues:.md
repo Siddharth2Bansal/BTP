@@ -4,21 +4,22 @@ known bugs:
 ~~reconstruction not working well~~
 
 left out:
-proper hash functions
+~~proper hash functions~~
 ~~verification of pseudo shares~~
 ~~combiner verification phase~~
 ~~transfer of pseudo shares to combiner~~
 ~~need to set up debugger~~
-pseudo share verification by combiner
+~~pseudo share verification by combiner~~
 ~~lagrange interpolation somehow not giving correct answers, need to test with dry runs need to check the function "f" for zero values~~
 Security analysis
 ~~separation of code into the different entities~~
     ~~currently working on~~
 ~~socket programming and separating code into different classes~~
-currently infinitely pinging the board every 5 seconds on failed requests,  need to keep a threshold here for cases with information withholding.
-need to add method for bulletin to turn off at the end
+~~currently infinitely pinging the board every 5 seconds on failed requests,  need to keep a threshold here for cases with information withholding.~~
+~~need to add method for bulletin to turn off at the end~~
 need to run cases with varied k and t values
 stronger values for the curve and the prime numbers
+populate assert statements to be a bit more meaningfull
 
 Questions:
 1.
