@@ -182,6 +182,14 @@ class Dealer(Not_Bulletin):
             u_i = small_gamma_i + (h_i * self.private)
             self.put_to_board(i, "u", u_i)
             self.put_to_board(i, "big_gamma", (big_gamma_i.x, big_gamma_i.y))
+    
+    def combiner_secret_verifier(self):
+        small_gamma_i = randint(1, self.global_params["m"] - 1)
+        big_gamma_i = small_gamma_i * self.global_params["Q"]
+        h_i = hash_h(self.combiner_secret.x | self.combiner_secret.y | -1 | big_gamma_i.x | big_gamma_i.y, self.global_params)
+        u_i = small_gamma_i + (h_i * self.private)
+        self.put_to_board(-1, "u", u_i)
+        self.put_to_board(-1, "big_gamma", (big_gamma_i.x, big_gamma_i.y))
 
     # coeffs contains a0, a1, a2 ... an
     def f(self, x):
@@ -246,6 +254,16 @@ class Combiner(Not_Bulletin):
             v = self.private * hash_h((i | -1 | t), self.global_params) * A
             self.put_to_board(i, "v", (v.x, v.y))
             self.put_to_board(i, "t", t) 
+    
+    def verify_combiner_secret(self):
+        u_i = self.get_from_board("u", self.id)
+        big_gamma_i = self.get_from_board("big_gamma", self.id)
+        big_gamma_i = Point(self.global_params['curve'], big_gamma_i[0], big_gamma_i[1])
+        dealer_public = self.get_from_board("public", "dealer")
+        dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
+        h_i = hash_h(self.combiner_secret.x | self.combiner_secret.y | self.id | big_gamma_i.x | big_gamma_i.y, self.global_params)
+        assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
+
     
     def get_pseudo_share(self):
         Ks = self.get_from_board("K")

@@ -25,6 +25,7 @@ Questions:
 1.
 # should i implement combiner secret verification???
 # only mentioned offhandly in the paper
+i did it anyways
 
 2.
 # i dont see the point of combiner verification

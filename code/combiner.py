@@ -22,6 +22,7 @@ if wait_for_phases:
 print("generating prvate/public key and the combiners secret.")
 combiner.generate_key()
 combiner.generate_combiner_secret()
+combiner.verify_combiner_secret()
 
 if wait_for_phases:
     input("press enter to continue to verifying identity with the participants.")

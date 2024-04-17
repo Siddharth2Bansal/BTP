@@ -18,6 +18,7 @@ if wait_for_phases:
 print("generating prvate/public key and the combiners secret.")
 dealer.generate_key()
 dealer.generate_combiner_secret()
+dealer.combiner_secret_verifier()
 print(f"private key: {dealer.private} and public key: {dealer.public}.\n")
 
 if wait_for_phases:
