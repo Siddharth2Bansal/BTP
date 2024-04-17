@@ -19,7 +19,7 @@ Security analysis
 ~~need to add method for bulletin to turn off at the end~~
 need to run cases with varied k and t values
 stronger values for the curve and the prime numbers
-populate assert statements to be a bit more meaningfull
+~~populate assert statements to be a bit more meaningfull~~
 
 Questions:
 1.

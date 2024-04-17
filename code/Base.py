@@ -113,7 +113,7 @@ class Not_Bulletin:
             data = json.loads(data)
             self.socket.close()
             pings += 1
-        assert(data != None)
+        assert (data != None), f"Data not found for {type} and {id} after {ping_threshold} pings to the bulletin."
         return data
         # return bulletin_board.get(type, id)
 
@@ -262,7 +262,7 @@ class Combiner(Not_Bulletin):
         dealer_public = self.get_from_board("public", "dealer")
         dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
         h_i = hash_h(self.combiner_secret.x | self.combiner_secret.y | self.id | big_gamma_i.x | big_gamma_i.y, self.global_params)
-        assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
+        assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public)), "combiner secret verification failed."
 
     
     def get_pseudo_share(self):
@@ -296,7 +296,7 @@ class Combiner(Not_Bulletin):
             dealer_public = self.get_from_board("public", "dealer")
             dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
             h_i = hash_h(share | id | big_gamma_i.x | big_gamma_i.y, self.global_params)
-            assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
+            assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public)), f"pseudo share verification failed with the pseudo share provided by participant {id}."
 
     def get_points(self):
         self.points = []
@@ -378,7 +378,7 @@ class Participant(Not_Bulletin):
         dealer_public = self.get_from_board("public", "dealer")
         dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
         h_i = hash_h(self.X | self.id | big_gamma_i.x | big_gamma_i.y, self.global_params)
-        assert(u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public))
+        assert u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public), f"pseudo share verification failed with verifier provided by dealer for {self.id}"
 
     def verify_combiner(self):
         v = self.get_from_board("v", self.id)
