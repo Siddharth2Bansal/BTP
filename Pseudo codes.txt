@@ -1,0 +1,168 @@
+Dealer Initialization(1)
+
+global parameters = (q, a, b, Q, m). Publish global paameters
+Choose H : {0, 1}* -> Z_m
+Choose g: {0, 1}* x Z_q -> Z_q
+publish H and g.
+set a_0 <- Z_m as private key
+A_0 = a_0 * Q
+publish {DID, A_0}
+r <- Integer. Publish r
+small_chi_0 <- a_0 * A_c
+Chi_0 <- g(r, small_chi_0)
+for each P_i belonging to P:
+    B_i = a_0 * A_i 
+    I_i = g(r, B_i)
+    X_i = H(x_I_i XOR y_I_i)
+
+
+
+Dealer Verification of pseudo shares(2)
+for each P_i belonging to P:    
+    small_gamma_i <- Z_m
+    big_gamma_i = small_gamma_i * Q
+    h_i = H(X[i] | PID_i | big_gamma_i.x | big_gamma_i.y)
+    u_i = small_gamma_i + (h_i * a_0)
+    publish {u_i, big_gamma_i}
+
+small_gamma_c <- Z_m
+big_gamma_c = small_gamma_c * Q
+h_c = H(Chi_c | CID | big_gamma_c.x | big_gamma_c.y)
+u_c = small_gamma_c + (h_c * a_0)
+publish {u_c, big_gamma_c}
+
+
+
+Dealer Share Generation and Distribution(3):
+choose k secrets S_i for i = 1 to k <- Z_q
+choose K pseudo secrets s_i for i = 1 to k <- Z_m
+for i in 1 to k:
+    W_i = s_i * Q
+    Z_i = W_ + S_i + Chi_c
+publish {Z_1, Z_2, ..., Z_k}
+
+if k <= t:
+    f(x) = (a_0 + a_1 * x + a_2 * x^2 + ... + a_(t-1) * x^(t-1)) mod m
+    where a_0 = s_1, a_1 = s_2, ..., a_k-1 = s_k and a_k, ... a_t <- Z_m are random
+    for i = 1 to n:
+        y_i = f(X_i)
+        Y_i = y_i * Q
+    publish {Y_1, Y_2, ..., Y_n} and {Z_1, Z_2, ..., Z_k}
+else:
+    f(x) = (a_0 + a_1 * x + a_2 * x^2 + ... + a_(k-1) * x^(k-1)) mod m
+    where a_0 = s_1, a_1 = s_2, ..., a_k-1 = s_k 
+    choose R_1, R_2, ..., R_(k-t) <- Z_m such that {X_1, X_2, ..., X_k} intersection {R_1, R_2, ..., R_(k-t)} = 0
+    for i = 1 to n:
+        y_i = f(X_i)
+        Y_i = y_i * Q
+    for i = 1 to k-t:
+        lambda_i = f(R_i)
+        Capital_Lambda_i = lambd_i * Q
+    publish {Y_1, Y_2, ..., Y_n} and {Z_1, Z_2, ..., Z_k} and {(R_1, Capital_Lambda_1), (R_2, Capital_Lambda_2), ..., (R_(k-t), Capital_Lambda_(k-t))}
+
+
+
+Combiner Initialization(1)
+
+set a_c <- Z_m as private key
+A_c = a_c * Q
+publish {CID, A_c}
+
+small_chi_c <- a_c * A_0
+Chi_c <- g(r, small_chi_c)
+
+
+Combiner Verification of pseudo shares(2)
+
+h_c = H(Chi_c | CID | big_gamma_c.x | big_gamma_c.y)
+RHS = big_gamma_c + (h_c * A_0)
+LHS = u_c * Q
+assert RHS == LHS
+
+
+
+Combiner COmbiner Verification(4)
+
+for each P_i belonging to P:
+    T_i <- timestamp
+    v_i = a_c * A_i * H(PID_i | CID | T_i)
+    publish {v_i, T_i}
+
+
+Combiner Pseudo Share Transfer(5)
+
+for each P_i belonging to P:
+if K_i is available on SBB:
+    D_i_prime = a_c * A_i
+    I_i_prime = D_i_prime + K_i 
+    X_i_prime = H(x_I_i_prime XOR y_I_i_prime)
+
+    heading: verify X_i == X_i_prime
+    h_i_prime = H( X_i_prime | PID_i | big_gamma_i.x | big_gamma_i.y)
+    RHS = big_gamma_i + (h_i_prime * A_0)
+    LHS = u_i * Q
+    assert RHS == LHS
+
+
+Combiner Secret Reconstruction Phase(6)
+
+if k <= t:
+    L_i = product((x-X_j) / (X_i - X_j)) mod m for j = 1 to t, j != i
+    F(x) = sum(y_i * L_i) for i = 1 to t
+
+    (a_0 + a_1 * x^1 + ... + a_(t-1) * x^(t-1)) * Q = F(x)
+    (s_1 + s_2 * x + s_3 * x^2 + ... + s_k * x^(k-1) + a_k * x^k + ... + a_(t-1) * x^(t-1)) * Q = F(x)
+    W_1 + W_2 * x + ... + W_k * x^(k-1) + a_k * Q * x^k + ... + a_(t-1) * Q * x^(t-1) = F(x)
+
+else:
+    L_i = product((x-X_j) / (X_i - X_j)) mod m for j = 1 to t, j != i
+    l_i = product((x-R_j) / (X_i - R_j)) mod m for j = 1 to k-t
+    
+    F_L(x) = sum(y_i * L_i) for i = 1 to t
+    F_l(x) = sum(lambda_i * l_i) for i = 1 to k-t
+    F(x) = F_L(x) + F_l(x)
+
+    (a_0 + a_1 * x^1 + ... + a_(k-1) * x^(k-1)) * Q = F(x)
+    (s_1 + s_2 * x + s_3 * x^2 + ... + s_k * x^(k-1)) * Q = F(x)
+    W_1 + W_2 * x + ... + W_k * x^(k-1) = F(x)
+
+for i = 1 to k:
+    S_i = Z_i - W_i - Chi_c
+
+
+
+Participant Initialization(1)
+repeat:
+    set a_i <- Z_m as private key
+    A_i = a_i * Q
+until A_i is unique
+publish {PID_i, A_i}
+
+B_i_prime = a_i * A_c
+I_i_prime = g(r, B_i_prime)
+X_i_prime = H(x_I_i_prime XOR y_I_i_prime)
+
+
+
+Participant Verification of pseudo shares(2)
+
+h_i_prime = H( X_i_prime | PID_i | big_gamma_i.x | big_gamma_i.y)
+RHS = big_gamma_i + (h_i_prime * A_0)
+LHS = u_i * Q
+assert RHS == LHS
+
+
+Participant Combiner Verification(4)
+
+LHS = v_i
+RHS = a_i * A_c * H(PID_i | CID | T_i)
+assert LHS == RHS
+
+
+Participant Pseudo Share Transfer(5)
+
+D_i = a_i * A_c
+K_i = I_i - D_i
+publish K_i
+
+
