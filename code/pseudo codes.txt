@@ -1,0 +1,42 @@
+Dealer Initialization(1)
+
+global parameters = (q, a, b, Q, m). Publish global paameters
+Choose H : {0, 1}* -> Z_m
+Choose g: {0, 1}* x Z_q -> Z_q
+publish H and g.
+set a_0 <- Z_m as private key
+A_0 = a_0 * Q
+publish {DID, A_0}
+r <- Integer. Publish r
+small_chi_0 <- a_0 * A_c
+Chi_0 <- g(r, small_chi_0)
+for each P_i belonging to P:
+    B_i = a_0 * A_i 
+    I_i = g(r, B_i)
+    X_i = H(x_I_i XOR y_I_i)
+
+
+
+Dealer Verification of pseudo shares(2)
+for each P_i belonging to P:    
+    small_gamma_i <- Z_m
+    big_gamma_i = small_gamma_i * Q
+    h_i = H(X[i] | PID_i | big_gamma_i.x | big_gamma_i.y)
+    u_i = small_gamma_i + (h_i * self.private)
+    publish {u_i, big_gamma_i}
+
+small_gamma_c <- Z_m
+big_gamma_c = small_gamma_c * Q
+h_c = H(Chi_c | CID | big_gamma_c.x | big_gamma_c.y)
+u_c = small_gamma_c + (h_c * self.private)
+publish {u_c, big_gamma_c}
+
+
+
+Dealer Share Generation and Distribution(3):
+choose k secrets S_i for i = 1 to k <- Z_q
+choose K pseudo secrets s_i for i = 1 to k <- Z_m
+for i in 1 to k:
+    W_i = s_i * Q
+    Z_i = W_ + S_i + Chi_c
+publish {Z_1, Z_2, ..., Z_k}

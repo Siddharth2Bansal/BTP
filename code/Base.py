@@ -158,6 +158,7 @@ class Dealer(Not_Bulletin):
         combiner_public = self.get_from_board("public", -1)
         combiner_public = Point(self.global_params["curve"], combiner_public[0], combiner_public[1])
         self.combiner_secret = self.private * combiner_public
+        self.combiner_secret = hash_q(self.combiner_secret, self.global_params["random_seed"], self.global_params)
 
     def generate_pseudo_shares(self):
         self.b = {}
@@ -243,6 +244,7 @@ class Combiner(Not_Bulletin):
         dealer_public = self.get_from_board("public", "dealer")
         dealer_public = Point(self.global_params['curve'], dealer_public[0], dealer_public[1])
         self.combiner_secret = self.private * dealer_public
+        self.combiner_secret = hash_q(self.combiner_secret, self.global_params["random_seed"], self.global_params)
 
     def combiner_verifier(self):    
         for i in self.all_ids:
