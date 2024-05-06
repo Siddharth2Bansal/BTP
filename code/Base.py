@@ -91,6 +91,16 @@ class Not_Bulletin:
         while self.put_to_board(self.id, "public", (self.public.x, self.public.y)) == False:
             self.private = randint(0, self.global_params["m"] - 1)
             self.public = self.private * self.global_params["Q"]
+        if attack_3 == True and self.id == 0:
+            print(f"before attack: {self.private}")
+            self.private = randint(0, self.global_params["m"] - 1)
+            self.public = self.private * self.global_params["Q"]
+            print(f"after attack: {self.private}")
+            print(f"Impersonation atack for participant {self.id}.")
+        if attack_5 == True and self.id == -1:
+            self.private = randint(0, self.global_params["m"] - 1)
+            self.public = self.private * self.global_params["Q"]
+            print(f"Impersonation atack for participant {self.id}.")
 
     # get from board to be updated
     def get_from_board(self, type, id = None, ip = '127.0.0.1'):
@@ -172,6 +182,10 @@ class Dealer(Not_Bulletin):
             self.b[i] = (self.private * participant_public)
             self.I[i] = (hash_q(self.b[i], self.global_params["random_seed"], self.global_params))
             self.X[i] = (hash_h(self.I[i].x ^ self.I[i].y, self.global_params))
+        if attack_1 == True:
+            self.b[0] = (self.private * randint(0, self.global_params["m"]-1) * self.global_params["Q"])
+            self.I[0] = (hash_q(self.b[0], self.global_params["random_seed"], self.global_params))
+            self.X[0] = (hash_h(self.I[0].x ^ self.I[0].y, self.global_params))
 
     def pseudo_share_verifier(self):
         for i in self.all_ids:
@@ -258,6 +272,8 @@ class Combiner(Not_Bulletin):
             self.put_to_board(i, "t", t) 
     
     def verify_combiner_secret(self):
+        if self.id == -1 and attack_5 == True:
+            return
         u_i = self.get_from_board("u", self.id)
         big_gamma_i = self.get_from_board("big_gamma", self.id)
         big_gamma_i = Point(self.global_params['curve'], big_gamma_i[0], big_gamma_i[1])
@@ -374,6 +390,8 @@ class Participant(Not_Bulletin):
         self.X = hash_h(self.I.x ^ self.I.y, self.global_params)
 
     def verify_pseudo_share(self):
+        if self.id == 0 and attack_3 == True:
+            return
         u_i = self.get_from_board("u", self.id)
         big_gamma_i = self.get_from_board("big_gamma", self.id)
         big_gamma_i = Point(self.global_params['curve'], big_gamma_i[0], big_gamma_i[1])
@@ -383,6 +401,8 @@ class Participant(Not_Bulletin):
         assert u_i * self.global_params["Q"] == big_gamma_i + (h_i * dealer_public), f"pseudo share verification failed with verifier provided by dealer for {self.id}"
 
     def verify_combiner(self):
+        if self.id == 0 and attack_3 == True:
+            return True
         v = self.get_from_board("v", self.id)
         v = Point(self.global_params['curve'], v[0], v[1])
         t = self.get_from_board("t", self.id)
@@ -397,6 +417,11 @@ class Participant(Not_Bulletin):
         A = self.get_from_board("public", -1)
         A = Point(self.global_params['curve'], A[0], A[1])
         K = self.I - (self.private * A)
+        if attack_2 == True:
+            random_int = randint(0, self.global_params["m"] - 1)
+            if random_int >= int((self.global_params["m"] - 1)/3):
+                K = randint(0, self.global_params["m"] - 1) * self.global_params["Q"]
+                print(f"Attacked the pseudo share transfer for participant {self.id}.")
         self.put_to_board(self.id, "K", (K.x, K.y))
 
 
@@ -474,6 +499,10 @@ class Participant(Not_Bulletin):
 
 # CONFIGS
 participant_count = 3
-bulletin_port = 12348
+bulletin_port = 12347
 wait_for_phases = False
 ping_threshold = 7
+attack_1 = False
+attack_2 = False
+attack_3 = False
+attack_5 = True

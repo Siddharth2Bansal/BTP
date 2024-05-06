@@ -37,6 +37,8 @@ if wait_for_phases:
 print("if the combiner is verified, transfering the pseudo shares.")
 if participant.verify_combiner():
     participant.transfer_pseudo_shares()
+else:
+    print("Combiner is not verified.")
 
 participant.signal_done()
 print("Participant part done!!")
